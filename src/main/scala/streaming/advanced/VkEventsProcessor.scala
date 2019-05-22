@@ -19,18 +19,16 @@ object VkEventsProcessor {
             (bytes: Array[Byte]) => Bytes2MessageDeserializer.deserialize(bytes))
 
         val df1 = df.selectExpr("""decode_message(value) as message""")
-                        .select($"message.creationTime",
-                            $"message.userId",
-                            $"message.content",
-                            explode($"message.hashtags").alias("hashtag"))
                         .select(
-                            $"creationTime".cast(DataTypes.TimestampType).alias("timestamp"),
-                            $"userId",
-                            $"content",
+                            $"message.creationTime".cast(DataTypes.TimestampType).as("timestamp"),
+                            explode($"message.hashtags").alias("hashtag"))
+                        .withColumn(
+                            "hashtag",
                             lower(
                                 regexp_replace($"hashtag", " ", "")
                             ).alias("hashtag"))
                         .withWatermark("timestamp", "20 second")
+                        .where($"hashtag".isNotNull)
                         .groupBy(
                             window($"timestamp", "1 minute"),
                             $"hashtag")
